@@ -1,6 +1,6 @@
 clear;close all
 str_vec = @(r) exp(1j*2*pi*r);
-L = 3;
+L = 5;
 K_a_half = 64;
 K_a = K_a_half*2+1; K_e = 1;
 fc = 2.8e10;
@@ -14,12 +14,14 @@ diff_dis = zeros(K_a*K_e,L);
 Ant_res = zeros(K_a*K_e,L);
 
 rcs_power = 10;
-P_noise = -10;
+P_noise = 0;
 
 ant_pos = [zeros(K_a*K_e,1),kron((0:K_a-1)'*d_a,ones(K_e,1)), kron(ones(K_a,1),(0:K_e-1)'*d_e)];
 tar_pos = [30,15,3;...
     10,-2,2;
-    20,-15,2];
+    20,-15,2;
+    10,20,1;
+    15,0,0];
 for i = 1:L
     diff_tar_rec(:,:,i) = tar_pos(i,:)-ant_pos;
     azi(:,i) = atan(diff_tar_rec(:,2,i)./diff_tar_rec(:,1,i));
@@ -55,7 +57,7 @@ for i = 1:401
     end
 end
 P_pod = 1./P_mu;
-[a,pc] = polarPcolor(r,asin(theta)/pi*180,abs(P_pod)/max(max(abs(P_pod))),'colBar',0);
+[a,pc] = polarPcolor(r,asin(theta)/pi*180,100*abs(P_pod)/max(max(abs(P_pod))),'colBar',0);
 scatter(sin(azi(65,:)).*diff_dis(65,:)/far_limit,cos(azi(65,:)).*diff_dis(65,:)/far_limit, 'r*');
 r_est = zeros(Num_d,1);
 theta_est = zeros(Num_d,1);
@@ -66,12 +68,9 @@ for count = 1:Num_d
     stheta = (mod(idx-1, 401)-200)/200;
     theta_est(count) = asin((mod(idx-1, 401)-200)/200);
     v_recon = str_vec(-(-K_a_half:K_a_half)'*stheta/2 +...
-     d_a^2/2/lambda*((-K_a_half:K_a_half).^2)'*(1-stheta^2)'/r_est(count));
-    for i = 1:401
-        for j = 1:501
-            P_mu(i,j) = P_mu(i,j)+abs((t_bas_2nd(:,i,j)' *v_recon)*(v_recon' * t_bas_2nd(:,i,j)));
-        end
-    end
+    d_a^2/2/lambda*((-K_a_half:K_a_half).^2)'*(1-stheta^2)'/r_est(count));
+    P_mu = P_mu+abs(permute(pagemtimes(permute(conj(t_bas_2nd),[2,1,3]),v_recon),[1,3,2])).^2;
+
 end
 scatter(r_est.*sin(theta_est)/far_limit,r_est.*cos(theta_est)/far_limit, 'go');
 % %% DFT
