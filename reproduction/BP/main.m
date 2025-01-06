@@ -47,7 +47,7 @@ r_est = (idx(:,2)-1)/500*(far_limit-sense_limit)+sense_limit;
 theta_est = asin((idx(:,1)-1-200)/200);
 subplot(2,3,1)
 [a,pc] = polarPcolor(r,asin(theta)/pi*180,50*log(100*abs(P_pod)/max(max(abs(P_pod))))/log(10),'colBar',0);
-scatter(sin(azi(65,:)).*diff_dis(65,:)/far_limit,cos(azi(65,:)).*diff_dis(65,:)/far_limit, 'r*');
+scatter(sin(azi(K_a_half+1,:)).*diff_dis(K_a_half+1,:)/far_limit,cos(azi(K_a_half+1,:)).*diff_dis(K_a_half+1,:)/far_limit, 'r*');
 scatter(r_est.*sin(theta_est)/far_limit,r_est.*cos(theta_est)/far_limit, 'co');
 r_est = zeros(Num_d,1);
 theta_est = zeros(Num_d,1);
@@ -63,9 +63,8 @@ for count = 1:Num_d
     P_pod = 1./P_mu;
     subplot(2,3,count+1)
     [a,pc] = polarPcolor(r,asin(theta)/pi*180,50*log(100*abs(P_pod)/max(max(abs(P_pod))))/log(10),'colBar',0);
-    scatter(sin(azi(65,:)).*diff_dis(65,:)/far_limit,cos(azi(65,:)).*diff_dis(65,:)/far_limit, 'r*');
+    scatter(sin(azi(K_a_half+1,:)).*diff_dis(K_a_half+1,:)/far_limit,cos(azi(K_a_half+1,:)).*diff_dis(K_a_half+1,:)/far_limit, 'r*');
     scatter(r_est(1:count).*sin(theta_est(1:count))/far_limit,r_est(1:count).*cos(theta_est(1:count))/far_limit, 'go');
 end
-
 
 
