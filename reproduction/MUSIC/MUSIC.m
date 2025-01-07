@@ -3,7 +3,7 @@ str_vec = @(r) exp(1j*2*pi*r);
 L = 5; K_a_half = 64;
 K_a = K_a_half*2+1; K_e = 1;
 fc = 2.8e10; c = 3e8; lambda = c/fc;
-d_a = 1*lambda; d_e = 1/2*lambda;diff_tar_rec = zeros(K_a*K_e,3,L);
+d_a = 1*lambda; d_e = 1/2*lambda; diff_tar_rec = zeros(K_a*K_e,3,L);
 azi = zeros(K_a*K_e,L);ele = zeros(K_a*K_e,L);
 diff_dis = zeros(K_a*K_e,L);Ant_res = zeros(K_a*K_e,L);
 
