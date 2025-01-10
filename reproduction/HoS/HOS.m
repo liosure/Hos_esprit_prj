@@ -1,6 +1,6 @@
 clear;close all
 str_vec = @(r) exp(1j*2*pi*r);
-L = 1; K_a_half = 64;
+L = 2; K_a_half = 64;
 K_a = K_a_half*2+1; K_e = 1;
 fc = 2.8e9; c = 3e8; lambda = c/fc;
 d_a = 1/2*lambda; d_e = 1/2*lambda;diff_tar_rec = zeros(K_a*K_e,3,L);

@@ -3,65 +3,59 @@ classdef CHL
     %   此处显示详细说明
     
     properties
-        pos_tar
-        pos_ant
-        pos_bs
-        pos_ref
-        pos_img
-        chl_info 
-        str_vec = @(r) exp(1j*2*pi*r);
+        dep
+        midpath
+        arr
+        pos
+        channel
+        firstToF
     end
     
     methods
-        function obj = CHL(pos_tar_input, pos_ant_input, pos_ref_input,pos_bs_input,c,fc,Num_ref)
+        function obj = CHL(position, PhyPar, path, RCS)
             %CHL 构造此类的实例
             %   此处显示详细说明
-            obj.pos_tar = pos_tar_input;
-            obj.pos_ant = pos_ant_input;
-            obj.pos_bs = pos_bs_input;
-            obj.pos_ref = pos_ref_input;
-            obj.pos_img = [1, 1 ,-1].*obj.pos_tar;
-            obj.chl_info = obj.chl_gen(c,fc,Num_ref);
+            obj.pos = position;
+            Numberofpath = numel(path)-1;
+            % ChannelStruct = struct('azi', [], 'ele', [], 'timeofflight', [],'pathloss',[],'antennaresponse',[]);
+            % obj.channel = repmat(ChannelStruct, Numberofpath, 1);
+            tempchannel = obj.chl_gen(path{1},path{2},PhyPar);
+            obj.channel.azi(1) = tempchannel.azi(floor(end/2));
+            obj.channel.ele(1) = tempchannel.ele(floor(end/2));
+            obj.channel.timeofflight = tempchannel.timeofflight;
+            obj.firstToF = tempchannel.timeofflight;
+            obj.channel.pathloss = tempchannel.pathloss;
+            obj.channel.spatial = tempchannel.antennaresponse.';
+            for i = 2:Numberofpath
+                tempchannel = obj.chl_gen(path{i},path{i+1},PhyPar);
+                obj.channel.azi(i) = tempchannel.azi(floor(end/2));
+                obj.channel.ele(i) = tempchannel.ele(floor(end/2));
+                obj.channel.timeofflight = obj.channel.timeofflight + tempchannel.timeofflight;
+                obj.channel.pathloss = obj.channel.pathloss.*tempchannel.pathloss.*RCS(i-1);
+                obj.channel.spatial = tempchannel.antennaresponse*obj.channel.spatial;
+            end
         end
         
-        function chl_info = chl_gen(obj,c,fc,Num_ref)
+        function Channel = chl_gen(obj,poscell1,poscell2,PhyPar)
             % cell：阵列响应矩阵，水平角，俯仰角，时延
-            diff_rec_tar = obj.pos_tar - obj.pos_ant;
-            azi_tar = atan(diff_rec_tar(:,2)./diff_rec_tar(:,1));
-            ele_tar = atan(diff_rec_tar(:,3)./sqrt((diff_rec_tar(:,2).^2+diff_rec_tar(:,1).^2)));
-            diff_dis_tar = sqrt(sum(diff_rec_tar.^2,2))/c*fc;
-            diff_dis_center_tar = sqrt(sum((obj.pos_tar - obj.pos_bs).^2,2))/c*fc;
-            Ant_rec_tar = obj.str_vec(diff_dis_tar-diff_dis_center_tar);
-            
-            diff_rec_img = obj.pos_img - obj.pos_ant;
-            azi_img = atan(diff_rec_img(:,2)./diff_rec_img(:,1));
-            ele_img = atan(diff_rec_img(:,3)./sqrt((diff_rec_img(:,2).^2+diff_rec_img(:,1).^2)));
-            diff_dis_img = sqrt(sum(diff_rec_img.^2,2))/c*fc;
-            diff_dis_center_img = sqrt(sum((obj.pos_img - obj.pos_bs).^2,2))/c*fc;
-            Ant_rec_img = obj.str_vec(diff_dis_img-diff_dis_center_img);
-
-            diff_tar_rec_ref = zeros([numel(obj.pos_ant(:,1)),3,Num_ref]);
-            azi_ref = zeros([numel(obj.pos_ant(:,1)),Num_ref]);
-            ele_ref = zeros([numel(obj.pos_ant(:,1)),Num_ref]);
-            diff_dis_ref = zeros([numel(obj.pos_ant(:,1)),Num_ref]);
-            Ant_rec_ref = zeros([numel(obj.pos_ant(:,1)),Num_ref]);
-            diff_dis_center_ref = zeros([numel(obj.pos_ant(:,1)),Num_ref]);
-
-            for i = 1 : Num_ref
-                diff_tar_rec_ref(:,:,i) = obj.pos_ref(1,:,i) - obj.pos_ant;
-                diff_dis_tar_ref = sqrt(sum((obj.pos_ref(1,:,i) - obj.pos_tar).^2,2));
-                azi_ref(:,i) = atan(diff_tar_rec_ref(:,2,i)./diff_tar_rec_ref(:,1,i));
-                ele_ref(:,i) = atan(diff_tar_rec_ref(:,3,i)./sqrt((diff_tar_rec_ref(:,2,i).^2+diff_tar_rec_ref(:,1,i).^2)));
-                diff_dis_ref(:,i) = (sqrt(sum(diff_tar_rec_ref(:,:,i).^2,2))+diff_dis_tar_ref )/c*fc;
-                diff_dis_center_ref(:,i) = sqrt(sum((obj.pos_ref(1,:,i) - obj.pos_bs).^2,2))/c*fc;
-                Ant_rec_ref(:,i) = obj.str_vec(diff_dis_ref(:,i)-diff_dis_center_ref(:,i));
+            pos1 = cell2mat(poscell1(1));
+            index1 = cell2mat(poscell1(2));
+            pos2 = cell2mat(poscell2(1));
+            index2 = cell2mat(poscell2(2));
+            Posdiff = obj.pos.(pos2)(index2,:)-obj.pos.(pos1)(index1,:);
+            Channel.azi = atan(Posdiff(:,2)./Posdiff(:,1));
+            Channel.ele = atan(Posdiff(:,3)./sqrt((Posdiff(:,2).^2+Posdiff(:,1).^2)));
+            Channel.timeofflight = sqrt(sum(Posdiff.^2,2))/PhyPar.c;
+            Channel.pathloss = sqrt(PhyPar.lambda^2/(4*pi)^2./sum(Posdiff.^2,2));
+            if strcmp(pos2, 'antenna')
+                diff_dis_center_tar = sqrt(sum((obj.pos.BS-obj.pos.(pos1)(index1,:)).^2,2))/PhyPar.c;
+                Channel.antennaresponse = PhyPar.StrVecfun((Channel.timeofflight-diff_dis_center_tar)*PhyPar.Freqc);
+            elseif strcmp(pos1, 'antenna')
+                diff_dis_center_tar = sqrt(sum((obj.pos.(pos2)(index2,:) - obj.pos.BS).^2,2))/PhyPar.c;
+                Channel.antennaresponse = PhyPar.StrVecfun((Channel.timeofflight-diff_dis_center_tar)*PhyPar.Freqc);
+            else
+                Channel.antennaresponse = 1;
             end
-
-            chl_info = ...
-                {Ant_rec_tar, azi_tar, ele_tar, diff_dis_center_tar;...
-                Ant_rec_img, azi_img, ele_img, diff_dis_center_img;...
-                Ant_rec_ref, azi_ref, ele_ref, diff_dis_center_ref;...
-                };
         end
     end
 end
