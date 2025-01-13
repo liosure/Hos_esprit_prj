@@ -1,15 +1,15 @@
 clear;close all
 str_vec = @(r) exp(1j*2*pi*r);
-L = 2; K_a_half = 64;
+L = 1; K_a_half = 64;
 K_a = K_a_half*2+1; K_e = 1;
 fc = 2.8e9; c = 3e8; lambda = c/fc;
 d_a = 1/2*lambda; d_e = 1/2*lambda;diff_tar_rec = zeros(K_a*K_e,3,L);
 azi = zeros(K_a*K_e,L);ele = zeros(K_a*K_e,L);
 diff_dis = zeros(K_a*K_e,L);Ant_res = zeros(K_a*K_e,L);
 
-rcs_power = 10; P_noise = -20;% dbm
+rcs_power = 10; P_noise = -200;% dbm
 
-ant_pos = [zeros(K_a*K_e,1),kron((0:K_a-1)'*d_a,ones(K_e,1)), kron(ones(K_a,1),(0:K_e-1)'*d_e)];
+ant_pos = [zeros(K_a*K_e,1),kron((-K_a_half:K_a_half)'*d_a,ones(K_e,1)), kron(ones(K_a,1),(0:K_e-1)'*d_e)];
 tar_pos = [10,3.3,1; 10,-2,2; 20,-10,2;10,20,1; 14,30,2;];
 
 for i = 1:L
@@ -92,7 +92,7 @@ Exp_mat = [FourthOrderExpectation1,FourthOrderExpectation4,FourthOrderExpectatio
     FourthOrderExpectation4',FourthOrderExpectation1,FourthOrderExpectation3;...
     FourthOrderExpectation2',FourthOrderExpectation3',FourthOrderExpectation1];
 
-[Ue,ev] = eig(Cum_mat);
+[Ue,ev] = eig(Exp_mat);
 Num_d = L;
 U_noise = Ue(:,1:K_a*K_e-Num_d);
 U_sig = Ue(:,1:Num_d);
