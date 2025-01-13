@@ -1,16 +1,16 @@
 clear;close all
 str_vec = @(r) exp(1j*2*pi*r);
-L = 2; K_a_half = 64;
+L = 1; K_a_half = 32;
 K_a = K_a_half*2+1; K_e = 1;
 fc = 2.8e9; c = 3e8; lambda = c/fc;
 d_a = 1/2*lambda; d_e = 1/2*lambda;diff_tar_rec = zeros(K_a*K_e,3,L);
 azi = zeros(K_a*K_e,L);ele = zeros(K_a*K_e,L);
 diff_dis = zeros(K_a*K_e,L);Ant_res = zeros(K_a*K_e,L);
 
-rcs_power = 10; P_noise = -20;% dbm
+rcs_power = 10; P_noise = -200;% dbm
 
-ant_pos = [zeros(K_a*K_e,1),kron((0:K_a-1)'*d_a,ones(K_e,1)), kron(ones(K_a,1),(0:K_e-1)'*d_e)];
-tar_pos = [10,3.3,1; 10,-2,2; 20,-10,2;10,20,1; 14,30,2;];
+ant_pos = [zeros(K_a*K_e,1),kron((-K_a_half:K_a_half)'*d_a,ones(K_e,1)), kron(ones(K_a,1),(0:K_e-1)'*d_e)];
+tar_pos = [10,4,1; 10,-2,2; 20,-10,2;10,20,1; 14,30,2;];
 
 for i = 1:L
     diff_tar_rec(:,:,i) = tar_pos(i,:)-ant_pos;
@@ -20,9 +20,9 @@ for i = 1:L
     Ant_res(:,i) = str_vec((diff_dis(:,i)-min(diff_dis(K_a_half+1,i)))/c*fc);
 end
 
-N = 512;
-x = randi([0,3],N,L);
-s = qammod(x,4,'gray','UnitAveragePower',true);
+N = 2048;
+x = randi([0,15],N,L);
+s = qammod(x,16,'gray','UnitAveragePower',true);
 sgm_rcs = sqrt(rcs_power/2)*(randn(L,1)+1j*randn(L,1));
 rec_sig = Ant_res*diag(sgm_rcs)*s.'+sqrt(10^(P_noise/10)/2)*(randn(K_a*K_e,N)+1j*randn(K_a*K_e,N));
 
@@ -36,49 +36,49 @@ idx1mn = (K_a_half+2):-1:3;
 
 
 FourthOrderExpectation1 = (conj(rec_sig(idxm,:)).*rec_sig(idxm1,:))*...
-    (conj(rec_sig(idxn,:)).*rec_sig(idxn1,:))';
-SecondOrderExpectation1 = mean(conj(rec_sig(idxm,:)).*rec_sig(idxm1,:),2)*...
-    mean(conj(rec_sig(idxn1,:)).*rec_sig(idxn,:),2).';
+    (conj(rec_sig(idxn,:)).*rec_sig(idxn1,:))'/N;
+SecondOrderExpectation1 = sum(conj(rec_sig(idxm,:)).*rec_sig(idxm1,:),2)*...
+    sum(conj(rec_sig(idxn1,:)).*rec_sig(idxn,:),2).'/N^2;
 SecondOrderExpectation2 = (conj(rec_sig(idxm,:))*rec_sig(idxn,:).').*...
-    (rec_sig(idxm1,:)*rec_sig(idxn1,:)');
+    (rec_sig(idxm1,:)*rec_sig(idxn1,:)')/N^2;
 SecondOrderExpectation3 = (conj(rec_sig(idxm,:))*rec_sig(idxn1,:)').*...
-    (rec_sig(idxm1,:)*rec_sig(idxn,:).');
+    (rec_sig(idxm1,:)*rec_sig(idxn,:).')/N^2;
 
 Cum1 = FourthOrderExpectation1-SecondOrderExpectation1-...
     SecondOrderExpectation2-SecondOrderExpectation3;
 
 FourthOrderExpectation2 = (conj(rec_sig(idxmm1,:)).*rec_sig(idxm,:))*...
-    (conj(rec_sig(idx1mn,:)).*rec_sig(idxmn,:))';
-SecondOrderExpectation1 = mean(conj(rec_sig(idxmm1,:)).*rec_sig(idxm,:),2)*...
-    mean(conj(rec_sig(idxmn,:)).*rec_sig(idx1mn,:),2).';
+    (conj(rec_sig(idx1mn,:)).*rec_sig(idxmn,:))'/N;
+SecondOrderExpectation1 = sum(conj(rec_sig(idxmm1,:)).*rec_sig(idxm,:),2)*...
+    sum(conj(rec_sig(idxmn,:)).*rec_sig(idx1mn,:),2).'/N^2;
 SecondOrderExpectation2 = (conj(rec_sig(idxmm1,:))*rec_sig(idx1mn,:).').*...
-    (rec_sig(idxm,:)*rec_sig(idxmn,:)');
+    (rec_sig(idxm,:)*rec_sig(idxmn,:)')/N^2;
 SecondOrderExpectation3 = (conj(rec_sig(idxmm1,:))*rec_sig(idxmn,:)').*...
-    (rec_sig(idxm,:)*rec_sig(idx1mn,:).');
+    (rec_sig(idxm,:)*rec_sig(idx1mn,:).')/N^2;
 
 Cum2 = FourthOrderExpectation2-SecondOrderExpectation1-...
     SecondOrderExpectation2-SecondOrderExpectation3;
 
 FourthOrderExpectation3 = (conj(rec_sig(idxm,:)).*rec_sig(idxm1,:))*...
-    (conj(rec_sig(idx1mn,:)).*rec_sig(idxmn,:))';
-SecondOrderExpectation1 = mean(conj(rec_sig(idxm,:)).*rec_sig(idxm1,:),2)*...
-    mean(conj(rec_sig(idxmn,:)).*rec_sig(idx1mn,:),2).';
+    (conj(rec_sig(idx1mn,:)).*rec_sig(idxmn,:))'/N;
+SecondOrderExpectation1 = sum(conj(rec_sig(idxm,:)).*rec_sig(idxm1,:),2)*...
+    sum(conj(rec_sig(idxmn,:)).*rec_sig(idx1mn,:),2).'/N^2;
 SecondOrderExpectation2 = (conj(rec_sig(idxm,:))*rec_sig(idx1mn,:).').*...
-    (rec_sig(idxm1,:)*rec_sig(idxmn,:)');
+    (rec_sig(idxm1,:)*rec_sig(idxmn,:)')/N^2;
 SecondOrderExpectation3 = (conj(rec_sig(idxm,:))*rec_sig(idxmn,:)').*...
-    (rec_sig(idxm1,:)*rec_sig(idx1mn,:).');
+    (rec_sig(idxm1,:)*rec_sig(idx1mn,:).')/N^2;
 
 Cum3 = FourthOrderExpectation3-SecondOrderExpectation1-...
     SecondOrderExpectation2-SecondOrderExpectation3;
 
 FourthOrderExpectation4 = (conj(rec_sig(idxmm1,:)).*rec_sig(idxm,:))*...
-    (conj(rec_sig(idxn,:)).*rec_sig(idxn1,:))';
-SecondOrderExpectation1 = mean(conj(rec_sig(idxmm1,:)).*rec_sig(idxm,:),2)*...
-    mean(conj(rec_sig(idxn1,:)).*rec_sig(idxn,:),2).';
+    (conj(rec_sig(idxn,:)).*rec_sig(idxn1,:))'/N;
+SecondOrderExpectation1 = sum(conj(rec_sig(idxmm1,:)).*rec_sig(idxm,:),2)*...
+    sum(conj(rec_sig(idxn1,:)).*rec_sig(idxn,:),2).'/N^2;
 SecondOrderExpectation2 = (conj(rec_sig(idxmm1,:))*rec_sig(idxn,:).').*...
-    (rec_sig(idxm,:)*rec_sig(idxn1,:)');
+    (rec_sig(idxm,:)*rec_sig(idxn1,:)')/N^2;
 SecondOrderExpectation3 = (conj(rec_sig(idxmm1,:))*rec_sig(idxn1,:)').*...
-    (rec_sig(idxm,:)*rec_sig(idxn,:).');
+    (rec_sig(idxm,:)*rec_sig(idxn,:).')/N^2;
 
 Cum4 = FourthOrderExpectation4-SecondOrderExpectation1-...
     SecondOrderExpectation2-SecondOrderExpectation3;
@@ -105,6 +105,7 @@ A3 = U_sig(2*K_a_half+1:3*K_a_half,:);
 [~,L2] = eig((A1'*A1)\A1'*A3);
 
 Thetaest= asin(angle(diag(L2))/pi/2)/pi*180;
+disp([Thetaest, azi(K_a_half+1,1)/pi*180])
 Rangeest = 1./(angle(diag(L1))/2/pi./cos(Thetaest/180*pi).^2/d_a^2*lambda);
 
 % 

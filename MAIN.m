@@ -2,53 +2,70 @@ clear;close all
 % 参数初始化
 allpath = genpath(pwd);
 addpath(allpath);
-[PhyPar,SysPar] = ParameterInitialization(2.8e9, 160, 70, 32, 32, 1, 1, 1, 1, 50, 0.5, 0.5, 2.4e5);
-Modulation = struct('scheme', 'qammod' , 'order' , 16); CPrate = 1/16; RCS = 1;
-BDPar = struct('waveform',ones((1+CPrate)*PhyPar.NumberofCarrier), ...
-    'order',2, 'processdelay', rand(1)*(CPrate)/PhyPar.Subcarrierspacing);
-WaveShape = eye(PhyPar.NumberofCarrier);
-% 笛卡尔坐标生成
-Position = PositionGeneration(PhyPar,SysPar,[15,0,15]);
+[physicalParameter,systemParameter] = ParameterInitialization(2.8e9, 160, ...
+    70, 32, 32, 1, 1, 1, 1, 50, 0.5, 0.5, 2.4e5);
+% 参数说明：
+modulationParameter = struct('scheme', 'qammod' , 'order' , 16); CPrate = 1/16; RCS = 1;
+BDParameter = struct('waveform',ones((1+CPrate)*physicalParameter.NumberofCarrier), ...
+    'order',2, 'processdelay', rand(1)*(CPrate)/physicalParameter.Subcarrierspacing);
+waveShape = eye(physicalParameter.NumberofCarrier);
+% 笛卡尔坐标生成 Freqc,NumberofCarrier,NumberofSymbol, ...
+% NumberofAntennahorizon, NumberofAntennavertical, NumberofTarget, NumberofScatter, NumberofBD, ...
+% NumberofUser, Range, HorizonSpacingRate, VerticalSpacingRate , Subcarrierspacing
+POSITION = PositionGeneration(physicalParameter,systemParameter,[15,0,15]);
 % 地面镜像
-Position.targetground = [1,1,-1].*Position.target;
-Position.BDground = [1,1,-1].*Position.target;
-Position.userground = [1,1,-1].*Position.user;
-Position.scatterground = [1,1,-1].*Position.scatter;
+POSITION.targetground = [1,1,-1].*POSITION.target;
+POSITION.BDground = [1,1,-1].*POSITION.target;
+POSITION.userground = [1,1,-1].*POSITION.user;
+POSITION.scatterground = [1,1,-1].*POSITION.scatter;
 
 % -------------------------------
 %     生成信道
 % -------------------------------
 
-pathfirstorder(1,:) = {{'antenna',':'},{'target',1},{'antenna',':'}};
-pathfirstorder(2,:) = {{'antenna',':'},{'targetground',1},{'antenna',':'}};
+pathFirstOrder(1,:) = {{'antenna',':'},{'target',1},{'antenna',':'}};
+pathFirstOrder(2,:) = {{'antenna',':'},{'targetground',1},{'antenna',':'}};
 
-chnfirstord(1) = CHL(Position, PhyPar, pathfirstorder(1,:), RCS);
-chnfirstord(2) = CHL(Position, PhyPar, pathfirstorder(2,:), RCS);
+channelFirstOrder(1) = CHL(POSITION, physicalParameter, pathFirstOrder(1,:), RCS);
+channelFirstOrder(2) = CHL(POSITION, physicalParameter, pathFirstOrder(2,:), RCS);
 
 % -------------------------------
-%     生成信号
+%     生成发射信号
 % -------------------------------
 
-[TransSignal , TxData, Txconst] = SignalGeneration(PhyPar , CPrate , Modulation,WaveShape);
+[txSignal , txData, txConst] = SignalGeneration(physicalParameter, ...
+    CPrate, modulationParameter, waveShape);
 
-Delayoffgrid = chnfirstord(1).channel.timeofflight-ceil(chnfirstord(1).channel.timeofflight*PhyPar.NumberofCarrier*PhyPar.Subcarrierspacing)/...
-    PhyPar.NumberofCarrier/PhyPar.Subcarrierspacing;
-Delayongrid = floor(chnfirstord(1).channel.timeofflight*PhyPar.NumberofCarrier*PhyPar.Subcarrierspacing);
+% -------------------------------
+%     生成反射接收信号
+% -------------------------------
+sampleNumber = (1+CPrate)*physicalParameter.NumberofCarrier * (physicalParameter.NumberofSymbol+1);
+delayOffGrid = channelFirstOrder(1).channel.timeofflight-...
+    ceil(channelFirstOrder(1).channel.timeofflight*...
+    physicalParameter.NumberofCarrier*physicalParameter.Subcarrierspacing)/...
+    physicalParameter.NumberofCarrier/physicalParameter.Subcarrierspacing;
+delayOnGrid = floor(channelFirstOrder(1).channel.timeofflight*...
+    physicalParameter.NumberofCarrier*physicalParameter.Subcarrierspacing);
 
-TimeDelaySignal = ReceiveSignalGenerate(Txconst, PhyPar , CPrate , WaveShape, Delayoffgrid(1));
-TimeDelaySignal = [zeros(Delayongrid(1),1);reshape(TimeDelaySignal,[numel(TimeDelaySignal),1])];
-TransBeamforming = [1;zeros(PhyPar.NumberofAntennahorizon*PhyPar.NumberofAntennavertical-1,1)];
-RecSignal = chnfirstord(1).channel.pathloss(PhyPar.NumberofAntennahorizon*...
-    PhyPar.NumberofAntennavertical/2)*chnfirstord(1).channel.spatial*TransBeamforming*...
-    [zeros(1,Delayongrid(1)),TimeDelaySignal.'];
+timeDelaySignal = ReceiveSignalGenerate(txConst, physicalParameter ,...
+    CPrate , waveShape, delayOffGrid(1));
+timeDelaySignal = [zeros(delayOnGrid(1),1);reshape(timeDelaySignal,[numel(timeDelaySignal),1])];
+txBeamforming = [1;zeros(physicalParameter.NumberofAntennahorizon*...
+    physicalParameter.NumberofAntennavertical-1,1)];
+rxSignal = channelFirstOrder(1).channel.pathloss(physicalParameter.NumberofAntennahorizon*...
+    physicalParameter.NumberofAntennavertical/2)*channelFirstOrder(1).channel.spatial*...
+    txBeamforming*[zeros(1,delayOnGrid(1)),timeDelaySignal.',...
+    zeros(1,sampleNumber-delayOnGrid(1)-numel(timeDelaySignal))];
 
 % -------------------------------
 %     空域估计
 % -------------------------------
 
-Resolution = [500,500,500];
-Num_d =1;
-RangeLimit = [0.62*sqrt(PhyPar.Spacinghorizon^3/PhyPar.lambda), ...
-    (PhyPar.Spacinghorizon^2*PhyPar.NumberofAntennahorizon^2+...
-    PhyPar.Spacingvertical^2*PhyPar.NumberofAntennavertical^2)/PhyPar.lambda];
-est = MUSIC2D(PhyPar, Position, RecSignal, RangeLimit,Num_d,Resolution);
+% RESLUTION = [500,500,500];
+% detectTargetNumber =1;
+% rangeLimit = [0.62*sqrt(physicalParameter.Spacinghorizon^3/physicalParameter.lambda), ...
+%     (physicalParameter.Spacinghorizon^2*physicalParameter.NumberofAntennahorizon^2+...
+%     physicalParameter.Spacingvertical^2*physicalParameter.NumberofAntennavertical^2)/...
+%     physicalParameter.lambda];
+% estimate = MUSIC2D(physicalParameter, POSITION, rxSignal, ...
+%     rangeLimit,detectTargetNumber,RESLUTION);
