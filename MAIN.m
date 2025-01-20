@@ -18,24 +18,18 @@ POSITION.targetground = [1,1,-1].*POSITION.target;
 POSITION.BDground = [1,1,-1].*POSITION.target;
 POSITION.userground = [1,1,-1].*POSITION.user;
 POSITION.scatterground = [1,1,-1].*POSITION.scatter;
-
 % -------------------------------
 %     生成信道
 % -------------------------------
-
 pathFirstOrder(1,:) = {{'antenna',':'},{'target',1},{'antenna',':'}};
 pathFirstOrder(2,:) = {{'antenna',':'},{'targetground',1},{'antenna',':'}};
-
 channelFirstOrder(1) = CHL(POSITION, physicalParameter, pathFirstOrder(1,:), RCS);
 channelFirstOrder(2) = CHL(POSITION, physicalParameter, pathFirstOrder(2,:), RCS);
-
 % -------------------------------
 %     生成发射信号
 % -------------------------------
-
 [txSignal , txData, txConst] = SignalGeneration(physicalParameter, ...
     CPrate, modulationParameter, waveShape);
-
 % -------------------------------
 %     生成反射接收信号
 % -------------------------------
