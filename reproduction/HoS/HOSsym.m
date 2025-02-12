@@ -1,4 +1,5 @@
 clear;close all
+
 str_vec = @(r) exp(1j*2*pi*r);
 L = 2; K_a_half = 16;K_e_half = 16;
 K_a = K_a_half*2+1; K_e = K_e_half*2+1;
@@ -22,57 +23,69 @@ for i = 1:L
 end
 
 N = 2000;
-x = randi([0,15],N,L);
-s = qammod(x,16,'gray','UnitAveragePower',true);
-sgm_rcs = sqrt(rcs_power/2)*(randn(L,1)+1j*randn(L,1));
-rec_sig = Ant_res*diag(sgm_rcs)*s.'+sqrt(10^(P_noise/10)/2)*(randn(K_a*K_e,N)+1j*randn(K_a*K_e,N));
-expectationFourthOrder = (rec_sig.*conj(rec_sig(end:-1:1,:)))*(rec_sig.*conj(rec_sig(end:-1:1,:)))'/N;
-expectationSecondOrder1 = (rec_sig*rec_sig').*(conj(rec_sig(end:-1:1,:))*conj(rec_sig(end:-1:1,:))')/N^2;
-templateCount = sum(rec_sig.*conj(rec_sig(end:-1:1,:)),2)/N;
-expectationSecondOrder2 = templateCount*templateCount';
-Cum_mat = expectationFourthOrder - expectationSecondOrder2 - expectationSecondOrder1;
-[Ue,ev] = eig(Cum_mat); 
-Num_d = L;
-U_sig = Ue(:,1:Num_d);
-CHOOSINGMAT1FORWORD = kron([eye(K_a-1),zeros(K_a-1,1)],eye(K_e));
-CHOOSINGMAT1BACKWORD= kron([zeros(K_a-1,1),eye(K_a-1)],eye(K_e));
-CHOOSINGMAT2FORWORD = kron(eye(K_a),[eye(K_e-1),zeros(K_e-1,1)]);
-CHOOSINGMAT2BACKWORD = kron(eye(K_a),[zeros(K_e-1,1),eye(K_e-1)]);
-A1Forward = CHOOSINGMAT1FORWORD*U_sig;
-A1Backward = CHOOSINGMAT1BACKWORD*U_sig;
-A2Forward = CHOOSINGMAT2FORWORD*U_sig;
-A2Backward = CHOOSINGMAT2BACKWORD*U_sig;
-[~,L1] =  eig((A1Forward'*A1Forward)\A1Forward'*A1Backward);
-[~,L2] =  eig((A2Forward'*A2Forward)\A2Forward'*A2Backward);
-thetaModify = angle(diag(conj(L1)))./sqrt(4*pi^2-angle(diag(conj(L2))).^2);
-thetaEst= acos(thetaModify)/pi*180;
-eleEst= acos(angle(diag(conj(L2)))/pi/2)/pi*180;
-estimateResult = [thetaEst,eleEst];
-estimateResult  = sortrows(estimateResult , -2);
-realValue = [azi(K_a_half*K_e+K_e_half+1,:)'/pi*180,90-ele(K_a_half*K_e+K_e_half+1,:)'/pi*180];
-realValue  = sortrows(realValue , -2);
-disp('Theta Estimation, Theta Real Number, Element Estimation, Element Real Value')
-disp([estimateResult(:,1),realValue(:,1),estimateResult(:,2),realValue(:,2)])
+Error = zeros(2,2,200,10);
+for l = 9:9
+    for i = 1:1
+        P_noise = 25 - 5*l;
+        x = randi([0,15],N,L);
+        s = qammod(x,16,'gray','UnitAveragePower',true);
+        sgm_rcs = sqrt(rcs_power/2)*(randn(L,1)+1j*randn(L,1));
+        rec_sig = Ant_res*diag(sgm_rcs)*s.'+sqrt(10^(P_noise/10)/2)*(randn(K_a*K_e,N)+1j*randn(K_a*K_e,N));
+        
+        temp = rec_sig.*conj(rec_sig(end:-1:1,:));
+        expectationFourthOrder = (temp)*(temp)'/N;
+        expectationSecondOrder1 = (rec_sig*rec_sig').*(conj(rec_sig(end:-1:1,:))*conj(rec_sig(end:-1:1,:))')/N^2;
+        templateCount = sum(temp,2)/N;
+        expectationSecondOrder2 = templateCount*templateCount';
+        Cum_mat = expectationFourthOrder - expectationSecondOrder2 - expectationSecondOrder1;
+        [Ue,ev] = eig(Cum_mat); 
+        Num_d = L;
+        U_sig = Ue(:,1:Num_d+1);
+        CHOOSINGMAT1FORWORD = kron([eye(K_a-1),zeros(K_a-1,1)],eye(K_e));
+        CHOOSINGMAT1BACKWORD= kron([zeros(K_a-1,1),eye(K_a-1)],eye(K_e));
+        CHOOSINGMAT2FORWORD = kron(eye(K_a),[eye(K_e-1),zeros(K_e-1,1)]);
+        CHOOSINGMAT2BACKWORD = kron(eye(K_a),[zeros(K_e-1,1),eye(K_e-1)]);
+        A1Forward = CHOOSINGMAT1FORWORD*U_sig;
+        A1Backward = CHOOSINGMAT1BACKWORD*U_sig;
+        A2Forward = CHOOSINGMAT2FORWORD*U_sig;
+        A2Backward = CHOOSINGMAT2BACKWORD*U_sig;
+        
+        [~,L1] =  eig((A1Forward'*A1Forward)\A1Forward'*A1Backward);
+        [~,L2] =  eig((A2Forward'*A2Forward)\A2Forward'*A2Backward);
+        thetaModify = angle(diag(conj(L1)))./sqrt(4*pi^2-angle(diag(conj(L2))).^2);
+        thetaEst= acos(thetaModify)/pi*180;
+        eleEst= acos(angle(diag(conj(L2)))/pi/2)/pi*180;
+        estimateResult = [thetaEst,eleEst];
+        estimateResult  = sortrows(estimateResult , -2);
+        realValue = [azi(K_a_half*K_e+K_e_half+1,:)'/pi*180,90-ele(K_a_half*K_e+K_e_half+1,:)'/pi*180];
+        realValue  = sortrows(realValue , -2);
+        Error(:,:,i,l) = estimateResult - realValue;
+    end
+    disp(l)
+end
+        disp('Theta Estimation, Theta Real Number, Element Estimation, Element Real Value')
+        disp([estimateResult(:,1),realValue(:,1),estimateResult(:,2),realValue(:,2)])
 
-[Ue,ev] = eig(Cum_mat); 
-Num_d = L;
-U_sig = Ue(:,1:Num_d);
-CHOOSINGMAT1FORWORD = kron([eye(K_a-1),zeros(K_a-1,1)],eye(K_e));
-CHOOSINGMAT1BACKWORD= kron([zeros(K_a-1,1),eye(K_a-1)],eye(K_e));
-CHOOSINGMAT2FORWORD = kron(eye(K_a),[eye(K_e-1),zeros(K_e-1,1)]);
-CHOOSINGMAT2BACKWORD = kron(eye(K_a),[zeros(K_e-1,1),eye(K_e-1)]);
-A1Forward = CHOOSINGMAT1FORWORD*U_sig;
-A1Backward = CHOOSINGMAT1BACKWORD*U_sig;
-A2Forward = CHOOSINGMAT2FORWORD*U_sig;
-A2Backward = CHOOSINGMAT2BACKWORD*U_sig;
-[~,L1] =  eig((A1Forward'*A1Forward)\A1Forward'*A1Backward);
-[~,L2] =  eig((A2Forward'*A2Forward)\A2Forward'*A2Backward);
-thetaModify = angle(diag(conj(L1)))./sqrt(4*pi^2-angle(diag(conj(L2))).^2);
-thetaEst= acos(thetaModify)/pi*180;
-eleEst= acos(angle(diag(conj(L2)))/pi/2)/pi*180;
-estimateResult = [thetaEst,eleEst];
-estimateResult  = sortrows(estimateResult , -2);
-realValue = [azi((K_a_half)*K_e+K_e_half+1,:)'/pi*180,90-ele((K_a_half)*K_e+K_e_half+1,:)'/pi*180];
-realValue  = sortrows(realValue , -2);
-disp('Theta Estimation, Theta Real Number, Element Estimation, Element Real Value')
-disp([estimateResult(:,1),realValue(:,1),estimateResult(:,2),realValue(:,2)])
+% [Ue,ev] = eig(Cum_mat); 
+% Num_d = L;
+% U_sig = Ue(:,1:Num_d);
+% idxChossingForward1 = kron(ones(1,K_e),1:K_a-1)+kron((0:(K_e-1))*K_a,ones(1,K_a-1));
+% idxChossingBackward1 = kron(ones(1,K_e),2:K_a)+kron((0:(K_e-1))*K_a,ones(1,K_a-1));
+% idxChossingForward2 = kron(ones(1,K_e-1),1:K_a)+kron((0:(K_e-2))*K_a,ones(1,K_a));
+% idxChossingBackward2 = kron(ones(1,K_e-1),1:K_a)+kron((1:(K_e-1))*K_a,ones(1,K_a));
+% A1Forward = U_sig(idxChossingForward1,:);
+% A1Backward = U_sig(idxChossingBackward1,:);
+% A2Forward = U_sig(idxChossingForward2,:);
+% A2Backward = U_sig(idxChossingBackward2,:);
+% [~,L1] =  eig((A1Forward'*A1Forward)\A1Forward'*A1Backward);
+% [~,L2] =  eig((A2Forward'*A2Forward)\A2Forward'*A2Backward);
+% thetaModify = angle(diag(conj(L1)))./sqrt(4*pi^2-angle(diag(conj(L2))).^2);
+% thetaEst= acos(thetaModify)/pi*180;
+% eleEst= acos(angle(diag(conj(L2)))/pi/2)/pi*180;
+% estimateResult = [thetaEst,eleEst];
+% estimateResult  = sortrows(estimateResult , -2);
+% realValue = [azi((K_a_half)*K_e+K_e_half+1,:)'/pi*180,90-ele((K_a_half)*K_e+K_e_half+1,:)'/pi*180];
+% realValue  = sortrows(realValue , -2);
+% disp('Theta Estimation, Theta Real Number, Element Estimation, Element Real Value')
+% disp([estimateResult(:,1),realValue(:,1),estimateResult(:,2),realValue(:,2)])
+
